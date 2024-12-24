@@ -1,0 +1,141 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+    <link rel="stylesheet" href="{% static 'plugins\bootstrap-3.4.1-dist\css\bootstrap.css' %}">
+    <style>
+        .box{
+            width: 450px;
+            border: 1px solid #f0f0f0;
+            margin-left: auto;
+            margin-right: auto;
+            margin-top:100px;
+
+            padding-left: 40px;
+            padding-right: 40px;
+            padding-bottom: 30px;
+
+            box-shadow: 5px 10px 10px rgb(0 0 0 /5%);
+        }
+        .error-msg{
+            color: red;
+            position: absolute;
+        }
+    </style>
+</head>
+<body>
+<div class="box">
+    <div style="text-align: center">
+            <h2>验证码登录</h2>
+    </div>
+    <form action="" method="post" id="SmsForm" novalidate>
+        {% csrf_token %}
+        {% for field in form %}
+            {% if field.name == 'code' %}
+                <div class="form-group" style="position: relative;margin-bottom: 25px">
+                    <label>{{ field.label }}</label>
+                    <div class="row">
+                        <div class="col-xs-7">
+                            {{ field }}
+                            <span class="error-msg" >{{ field.errors.0 }}</span>
+                        </div>
+                        <div class="col-xs-5">
+                           <input type="button" value="点击获取验证码" id="btnSendSms" class="btn btn-default">
+                        </div>
+                    </div>
+
+                </div>
+            {% else %}
+                <div class="form-group" style="position: relative;margin-bottom: 25px">
+                    <label>{{ field.label }}</label>
+                    {{ field }}
+                    <span class="error-msg" >{{ field.errors.0 }}</span>
+                </div>
+            {% endif %}
+        {% endfor %}
+        <input type="button" id="btnSubmit" class="btn btn-primary" value="登录">
+        <a href="{% url 'login' %}">账号登录</a>
+    </form>
+</div>
+    <script src="{% static 'js/jquery.js' %}"></script>
+    <script>
+        $(function () {
+            // 页面加载完之后，自动执行
+            bindSendSmsEvent();
+            btnSubmitEvent();
+        })
+        // 绑定点击发送短信的事件
+        function bindSendSmsEvent() {
+            $('#btnSendSms').click(function () {
+                //点击清楚所有的错误信息
+                $('.error-msg').empty()
+            //    获取手机号+发送后台（手机号格式校验）+发送短信
+                $.ajax({
+                    url:"{% url 'send_sms'%}",
+                    type:'POST',
+                    data:{
+                        mobile:$('#id_mobile').val(),
+                        role:$('#id_role').val(),
+                    },
+                    dataType:'JSON',
+                    success:function (res) {
+                        console.log(res)
+                        if(res.status){
+                        //     短信发送成功，显示60秒后重新发送
+                            console.log(res.msg);
+                            // 点击一次发送验证码之后就不可点击了
+                            $('#btnSendSms').prop('disabled',true)
+                            // 定时器
+                            var time = 60;
+                            var remind = setInterval(function(){
+                                $('#btnSendSms').val(time+'秒重新发送')
+                                time -= 1;
+
+                                if(time<1){
+                                    $('#btnSendSms').val('点击获取验证码')
+                                    // 定时器停止
+                                    clearInterval(remind)
+                                    // 60秒之后才可以点击发送验证码
+                                    $('#btnSendSms').prop('disabled',false)
+                                }
+                            },1000)
+                        }else {
+                        //     发送失败，展示错误信息
+                            console.log(res.msg);
+                            $.each(res.msg,function (k,v) {
+                                $('#id_'+k).next().text(v[0])
+                            })
+                        }
+                    }
+                })
+            })
+        }
+        function btnSubmitEvent(){
+            $('#btnSubmit').click(function(){
+                $('.error-msg').empty()
+                $.ajax({
+                    url: "{% url 'sms_login' %}",
+                    type: 'POST',
+                    data:$('#SmsForm').serialize(),
+                    dataType: 'JSON',
+                    success:function (res) {
+                        console.log(res)
+                        if(res.status){
+                            // 登录成功自动跳转 /home
+                            location.href = res.data
+                        }else{
+                            //     失败显示错误信息
+                            console.log(res.msg);
+                             $.each(res.msg,function (k,v) {
+                                $('#id_'+k).next().text(v[0])
+                            })
+                        }
+                    }
+                })
+            });
+        }
+    </script>
+</body>
+</html>
